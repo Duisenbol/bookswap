@@ -1,0 +1,166 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  // Token wallets
+  bronzeTokens Int @default(0)
+  silverTokens Int @default(0)
+  goldTokens   Int @default(0)
+
+  hasClaimedBonus Boolean @default(false)
+
+  // Auth relations
+  accounts Account[]
+  sessions Session[]
+
+  // Domain relations
+  books              Book[]
+  initiatedProposals ExchangeProposal[] @relation("Initiator")
+  receivedProposals  ExchangeProposal[] @relation("Owner")
+  reviews            Review[]
+  chatMessages       ChatMessage[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum BookStatus {
+  AVAILABLE
+  PENDING
+  EXCHANGED
+}
+
+model Book {
+  id               String   @id @default(cuid())
+  title            String
+  authors          String[]
+  description      String?
+  thumbnail        String?
+  googleBooksId    String?
+  conditionComment String?
+  conditionRating  Int? // 1 to 10
+
+  // Geolocation strictly tied to the book
+  latitude  Float
+  longitude Float
+  city      String
+
+  isForExchange Boolean    @default(false)
+  status        BookStatus @default(AVAILABLE)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  proposalsAsRequested ExchangeProposal[] @relation("RequestedBook")
+  proposalsAsOffered   ExchangeProposal[] @relation("OfferedBook")
+}
+
+enum ExchangeType {
+  TOKEN
+  BOOK_TRADE
+}
+
+enum ProposalStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model ExchangeProposal {
+  id     String         @id @default(cuid())
+  type   ExchangeType
+  status ProposalStatus @default(PENDING)
+
+  initiatorId String
+  initiator   User   @relation("Initiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User   @relation("Owner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  requestedBookId String
+  requestedBook   Book   @relation("RequestedBook", fields: [requestedBookId], references: [id], onDelete: Cascade)
+
+  offeredBookId String?
+  offeredBook   Book?   @relation("OfferedBook", fields: [offeredBookId], references: [id], onDelete: Cascade)
+
+  bookSent     Boolean @default(false)
+  bookReceived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chatMessages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  exchangeProposalId String
+  exchangeProposal   ExchangeProposal @relation(fields: [exchangeProposalId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id            String @id @default(cuid())
+  rating        Int // 1 to 10
+  text          String @db.Text
+  googleBooksId String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, googleBooksId])
+}
