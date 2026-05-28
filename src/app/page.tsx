@@ -1,65 +1,104 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { BookCard, SkeletonCard, type FeedBook } from "@/components/BookCard";
+import { MapPinOff } from "lucide-react";
 
 export default function Home() {
+  const [books, setBooks] = useState<FeedBook[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Функция загрузки ленты
+    const fetchFeed = async (lat?: number, lng?: number) => {
+      try {
+        setLoading(true);
+        let url = "/api/feed";
+        if (lat !== undefined && lng !== undefined) {
+          url += `?lat=${lat}&lng=${lng}`;
+        }
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+          setBooks(data.books);
+        } else {
+          console.error("Ошибка API ленты:", data.error);
+        }
+      } catch (error) {
+        console.error("Сетевая ошибка при загрузке ленты:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Асинхронная функция для инициализации ленты
+    const initFeed = () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            // Успешно получили координаты
+            fetchFeed(position.coords.latitude, position.coords.longitude);
+          },
+          (error) => {
+            console.warn("Ошибка геолокации:", error.message);
+            setGeoError("Разрешите доступ к геолокации, чтобы видеть ближайшие книги, или выберите город в профиле.");
+            // Фолбэк без координат
+            fetchFeed();
+          },
+          { timeout: 10000, maximumAge: 60000 }
+        );
+      } else {
+        // Браузер не поддерживает геолокацию
+        setGeoError("Ваш браузер не поддерживает геолокацию. Показаны последние добавленные книги.");
+        fetchFeed();
+      }
+    };
+
+    initFeed();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-gray-50/50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        <header className="flex flex-col gap-2 mb-8">
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+            Обмен книгами
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-gray-500">
+            Найдите интересные книги рядом с вами
           </p>
+        </header>
+
+        {/* Баннер ошибки геопозиции */}
+        {geoError && !loading && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex items-start gap-3">
+            <MapPinOff className="shrink-0 mt-0.5" size={20} />
+            <p className="text-sm">{geoError}</p>
+          </div>
+        )}
+
+        {/* Сетка книг */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {loading ? (
+            // Показываем 10 скелетонов во время загрузки
+            Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))
+          ) : books.length > 0 ? (
+            books.map((book) => (
+              <BookCard key={book.id} book={book} />
+            ))
+          ) : (
+            <div className="col-span-full py-12 text-center text-gray-500">
+              Пока нет доступных книг для обмена.
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+      </div>
+    </main>
   );
 }

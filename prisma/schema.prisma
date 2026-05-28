@@ -20,6 +20,11 @@ model User {
 
   hasClaimedBonus Boolean @default(false)
 
+  // Base/home geolocation
+  latitude  Float?
+  longitude Float?
+  city      String?
+
   // Auth relations
   accounts Account[]
   sessions Session[]
@@ -73,6 +78,12 @@ enum BookStatus {
   EXCHANGED
 }
 
+enum BookTier {
+  BRONZE
+  SILVER
+  GOLD
+}
+
 model Book {
   id               String   @id @default(cuid())
   title            String
@@ -90,6 +101,9 @@ model Book {
 
   isForExchange Boolean    @default(false)
   status        BookStatus @default(AVAILABLE)
+  tier          BookTier   @default(BRONZE)
+
+  createdAt     DateTime   @default(now())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
