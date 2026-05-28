@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     // Используем транзакцию для безопасного добавления книги и проверки бонуса
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Создаем книгу. isForExchange и status устанавливаются по умолчанию (false и AVAILABLE)
+      // 1. Создаем книгу. isForExchange: true чтобы выставить на обмен, status: AVAILABLE
       const newBook = await tx.book.create({
         data: {
           title,
@@ -54,7 +54,8 @@ export async function POST(request: Request) {
           latitude,
           longitude,
           city,
-          userId
+          userId,
+          isForExchange: true
         }
       });
 
