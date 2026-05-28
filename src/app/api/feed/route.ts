@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const latParam = searchParams.get("lat");
     const lngParam = searchParams.get("lng");
+    const cityParam = searchParams.get("city");
 
     let lat: number | null = null;
     let lng: number | null = null;
@@ -44,11 +45,14 @@ export async function GET(request: Request) {
           "userId",
           (
             6371 * acos(
-              cos(radians(${lat})) *
-              cos(radians(latitude)) *
-              cos(radians(longitude) - radians(${lng})) +
-              sin(radians(${lat})) *
-              sin(radians(latitude))
+              LEAST(
+                1.0,
+                cos(radians(${lat})) *
+                cos(radians(latitude)) *
+                cos(radians(longitude) - radians(${lng})) +
+                sin(radians(${lat})) *
+                sin(radians(latitude))
+              )
             )
           ) AS distance
         FROM "Book"
@@ -62,13 +66,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, books: booksWithDistance });
 
     } else {
-      // Фолбэк-режим: нет координат. Просто возвращаем последние добавленные книги.
+      // Фолбэк-режим: нет координат. Возвращаем книги с фильтром по городу (если передан) или последние добавленные.
       const books = await prisma.book.findMany({
         where: {
           isForExchange: true,
           status: "AVAILABLE",
           // Исключаем книги текущего пользователя, если он авторизован
-          ...(userId ? { userId: { not: userId } } : {})
+          ...(userId ? { userId: { not: userId } } : {}),
+          // Если передан город, фильтруем по нему
+          ...(cityParam ? { city: { equals: cityParam, mode: "insensitive" } } : {})
         },
         select: {
           id: true,
