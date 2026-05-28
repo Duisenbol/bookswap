@@ -20,6 +20,11 @@ model User {
 
   hasClaimedBonus Boolean @default(false)
 
+  // Base/home geolocation
+  latitude  Float?
+  longitude Float?
+  city      String?
+
   // Auth relations
   accounts Account[]
   sessions Session[]
